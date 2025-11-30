@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RxStocks Pro ver. 1.0</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        /* --- CSS STYLES --- */
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; color: #333; }
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .page-container { width: 100%; }
+        
+        /* Login Page */
+        .login-page-container { width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; position: relative; }
+        .login-container { background: #e0e0e0; padding: 20px; }
+        .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); width: 100%; max-width: 400px; text-align: center; box-sizing: border-box; }
+        .login-box h2 { margin-bottom: 20px; color: #007bff; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        .timestamp-display { margin-bottom: 20px; color: #555; text-align: right; font-size: 14px; }
+        .login-button-container { text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 10px; }
+        .login-timestamp-container { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 20px; color: #555; font-size: 14px; }
+        
+        .portal-links-container { margin-top: 25px; text-align: left; width: 100%; padding-top: 15px; border-top: 1px solid #eee; }
+        .portal-link { display: block; text-decoration: none; color: #007bff; font-size: 14px; margin-bottom: 12px; }
+        .portal-link:hover { text-decoration: underline; }
+        
+        /* Header */
+        header { background-color: #007bff; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; position: relative; }
+        header h1 { margin: 0 auto; font-size: 1.5rem; text-align: center; flex-grow: 1; }
+        .header-controls { display: flex; align-items: center; gap: 15px; }
+
+        /* Buttons */
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; background-color: #007bff; color: white; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn:hover { background-color: #0056b3; }
+        .btn:disabled { background-color: #6c757d; opacity: 0.6; cursor: not-allowed; }
+        .btn-secondary { background-color: #6c757d; } .btn-secondary:hover { background-color: #5a6268; }
+        .btn-danger { background-color: #dc3545; } .btn-danger:hover { background-color: #c82333; }
+        .btn-warning { background-color: #ffc107; color: #212529; } .btn-warning:hover { background-color: #e0a800; }
+        .btn-info { background-color: #17a2b8; } .btn-info:hover { background-color: #138496; }
+        .btn-success { background-color: #28a745; } .btn-success:hover { background-color: #218838; }
+        .btn-sm { padding: 5px 8px; font-size: 12px; margin-right: 5px; white-space: nowrap; }
+        
+        /* Special Buttons */
+        .invincible-admin-btn { width: 40px; height: 40px; background-color: transparent; border-radius: 50%; border: none; cursor: pointer; position: absolute; left: 2rem; }
+        .invincible-admin-btn:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .action-toggle-btn { font-size: 20px; background: none; border: none; cursor: pointer; padding: 5px; color: gold; }
+        .btn-icon { background-color: transparent; border: none; color: #007bff; font-size: 24px; cursor: pointer; }
+        
+        /* Layouts */
+        .action-buttons { margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+        .data-view-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); }
+        .table-header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .search-container { display: flex; align-items: center; flex-grow: 1; gap: 10px; }
+        #searchInput { flex-grow: 1; max-width: 400px; padding: 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; }
+        
+        /* Table */
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        table, th, td { border: 1px solid #ddd; }
+        th, td { padding: 12px 15px; text-align: left; white-space: nowrap; vertical-align: top; }
+        th { background-color: #e9ecef; font-weight: bold; color: #495057; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        
+        .pagination-container { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .pagination-controls { display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .pagination-label { font-weight: bold; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); max-width: 90%; width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-lg .modal-content { width: 90%; max-width: 900px; }
+        .modal-content h2 { margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .error-message { color: #dc3545; margin-top: 10px; font-size: 14px; }
+        
+        /* PWA Install Button */
+        .install-btn-container { margin-top: 15px; text-align: center; display: none; }
+        .btn-install { background-color: #28a745; color: white; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        /* System Check Animation */
+        .system-check-modal canvas { position: absolute; top: 0; left: 0; z-index: -1; }
+        #loadingBox { background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px; text-align: center; width: 300px; }
+        #progressBarContainer { width: 100%; height: 20px; background-color: #ddd; border-radius: 10px; margin: 15px 0; overflow: hidden; }
+        #progressBar { width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.3s; }
+        
+        @media (max-width: 768px) {
+            header { flex-direction: column; text-align: center; padding: 1rem; }
+            header h1 { order: 1; }
+            .header-controls { width: 100%; justify-content: center; order: 2; margin-top: 10px; }
+            .invincible-admin-btn { width: 1.5rem; height: 1.5rem; left: 1rem; top: 1.25rem; }
+            .action-buttons { flex-direction: column; }
+            .btn { width: 100%; margin-bottom: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
+    <div id="login-page" class="login-page-container">
+        <div class="login-container">
+            <div class="login-box">
+                <h2>RxStocks Pro ver. 1.0</h2>
+                <div id="loginTimestamp" class="login-timestamp-container"></div>
+                <form id="loginForm" autocomplete="off">
+                    <div class="input-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <div class="login-button-container">
+                        <button type="submit" class="btn">Login</button>
+                        <button type="button" id="enterCodeBtn" class="btn btn-secondary">Enter Activation Code</button>
+                    </div>
+                    
+                    <div id="pwaInstallContainer" class="install-btn-container">
+                        <button type="button" id="pwaInstallBtn" class="btn btn-install">📲 Install App to Phone/PC</button>
+                    </div>
+                    
+                    <p id="login-error" class="error-message"></p>
+                    <div class="portal-links-container">
+                        <a href="https://alphamedassistance.github.io/portalmain/" class="portal-link"><span class="emoji">&#127760;</span> click to access web portal</a>
+                        <a href="https://m.me/61578341193853" class="portal-link"><span class="emoji">&#127911;</span> click to request assistance</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="extensionCodeModal" class="modal">
+            <div class="modal-content">
+                <h2>Activate Application</h2>
+                <p class="text-sm text-gray-500 mb-4">The application is currently frozen. Please enter a valid access code to activate it for 30 days.</p>
+                <form id="extensionCodeForm">
+                    <div class="form-group">
+                        <label for="extensionCode">Access Code</label>
+                        <input type="text" id="extensionCode" required autocomplete="off" placeholder="Enter code here...">
+                    </div>
+                    <p id="extension-code-error" class="error-message"></p>
+                    <div class="modal-actions">
+                        <button type="submit" id="submitCodeBtn" class="btn">Activate</button>
+                        <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="inventory-page" class="page-container" style="display: none;">
+        <header>
+            <button class="invincible-admin-btn" title="Admin Options"></button>
+            <h1>RxStocks Pro ver. 1.0</h1>
+            <div class="header-controls">
+                <button id="logoutBtn" class="btn btn-danger">Log Out</button>
+            </div>
+        </header>
+
+        <main class="container">
+            <div class="action-buttons" id="actionButtons" style="display: none;">
+                <button id="registerBtn" class="btn">Register New Item</button>
+                <button id="viewListBtn" class="btn">View Full List</button>
+                <button id="dpmBtn" class="btn">Daily Product Movement</button>
+                <button id="dispenseListBtn" class="btn">Item for Replacement</button>
+                <button id="expirationBtn" class="btn btn-danger">Item Expiration</button>
+                <button id="exportBtnText" class="btn btn-secondary">Export (Copy Text)</button>
+                <button id="exportBtnFile" class="btn btn-info">Export (File)</button>
+                <button id="importBtnText" class="btn btn-secondary">Import (Paste Text)</button>
+                <button id="importBtnFile" class="btn btn-info">Import (File)</button>
+            </div>
+
+            <div class="data-view-container">
+                <div class="table-header-controls">
+                    <div class="search-container">
+                        <input type="text" id="searchInput" placeholder="Search by item name...">
+                        <button class="action-toggle-btn" id="toggleActionsBtn" title="Toggle Action Buttons">&#9670;</button>
+                    </div>
+                    <h3 id="totalItems">Total Items: 0</h3>
+                </div>
+
+                <div id="timestamp" class="timestamp-display"></div>
+                
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>Expiration Date</th>
+                                <th>Date of Registration</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="pagination-container">
+                    <div class="pagination-controls">
+                        <button id="prevPageBtn" class="btn">Previous</button>
+                        <button id="nextPageBtn" class="btn">Next</button>
+                    </div>
+                    <span id="pageInfo" class="pagination-label">Page 1 of 1</span>
+                </div>
+            </div>
+        </main>
+        
+        <div id="itemModal" class="modal">
+            <div class="modal-content">
+                <h2 id="modalTitle">Register New Item</h2>
+                <form id="itemForm">
+                    <input type="hidden" id="itemId">
+                    <div class="form-group"><label>Item Name</label><input type="text" id="itemName" maxlength="100" required></div>
+                    <div class="form-group"><label>Quantity</label><input type="number" id="quantity" min="0" max="999999" required></div>
+                    <div class="form-group"><label>Unit Price (₱)</label><input type="number" id="unitPrice" min="0" max="999999" step="0.01" required></div>
+                    <div class="form-group"><label>Expiration Date</label><input type="date" id="expirationDate"></div>
+                    <div class="form-group"><label>Date of Registration</label><input type="date" id="registrationDate" required></div>
+                    <p id="item-form-error" class="error-message"></p>
+                    <div class="modal-actions"><button type="submit" class="btn">Save</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div id="viewListModal" class="modal">
+            <div class="modal-content modal-lg">
+                <h2>Full Item List</h2>
+                <div id="fullItemList" class="scrollable-list"></div>
+                <div class="pagination-container"><div class="pagination-controls"><button id="fullListPrevBtn" class="btn btn-sm">Previous</button><button id="fullListNextBtn" class="btn btn-sm">Next</button></div><span id="fullListPageInfo" class="pagination-label">Page 1 of 1</span></div>
+                <div class="modal-actions"><button type="button" id="downloadFullListPdfBtn" class="btn btn-info">Download PDF</button><button type="button" class="btn btn-secondary cancel-btn">Close</button></div>
+            </div>
+        </div>
+
+        <div id="dispenseListModal" class="modal">
+            <div class="modal-content modal-lg">
+                <h2>Item for Replacement</h2>
+                <div class="form-group"><input type="text" id="dispenseListSearchInput" placeholder="Search replacement items..."></div>
+                <div class="table-wrapper"><table><thead><tr><th>Item Name</th><th>Last Dispense Date</th><th>Time</th><th>Qty Dispensed</th><th>Remaining</th></tr></thead><tbody id="dispenseListBody"></tbody></table></div>
+                <div class="pagination-container"><div class="pagination-controls"><button id="dispenseListPrevBtn" class="btn btn-sm">Previous</button><button id="dispenseListNextBtn" class="btn btn-sm">Next</button></div><span id="dispenseListPageInfo" class="pagination-label">Page 1 of 1</span></div>
+                <div class="modal-actions"><button type="button" id="downloadDispenseListPdfBtn" class="btn btn-info">Download PDF</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+            </div>
+        </div>
+        
+        <div id="expirationModal" class="modal">
+            <div class="modal-content modal-lg">
+                <h2>Expired & Nearing Expiration</h2>
+                <div class="form-group"><input type="text" id="expirationSearchInput" placeholder="Search expiring items..."></div>
+                <div class="table-wrapper"><table><thead><tr><th>Item Name</th><th>Expiration Date</th><th>Action</th></tr></thead><tbody id="expirationListBody"></tbody></table></div>
+                <div class="pagination-container"><div class="pagination-controls"><button id="expirationPrevBtn" class="btn btn-sm">Previous</button><button id="expirationNextBtn" class="btn btn-sm">Next</button></div><span id="expirationPageInfo" class="pagination-label">Page 1 of 1</span></div>
+                <div class="modal-actions"><button type="button" id="downloadExpirationPdfBtn" class="btn btn-info">Download PDF</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+            </div>
+        </div>
+
+        <div id="dispenseModal" class="modal">
+            <div class="modal-content">
+                <h2>Dispense Item</h2>
+                <form id="dispenseForm">
+                    <p>Item: <strong id="dispenseItemName"></strong></p><p>Available: <strong id="dispenseAvailableQty"></strong></p>
+                    <div class="form-group"><label>Quantity to Dispense</label><input type="number" id="dispenseQuantity" min="1" max="999999" required></div>
+                    <p id="dispense-error" class="error-message"></p>
+                    <div class="modal-actions"><button type="submit" class="btn">Dispense</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="dpmModal" class="modal">
+            <div class="modal-content modal-lg">
+                <h2>Daily Product Movement</h2>
+                <div class="dpm-controls"><div class="form-group"><label>Select a Date:</label><input type="date" id="dpmDateInput" required></div><button id="dpmDateBtn" class="btn">Show Report</button></div><hr>
+                <div id="dpmContent"></div>
+                <div class="dpm-pagination-controls" style="display: none;"><div class="pagination"><button id="dpmPrevPageBtn" class="btn btn-sm">Previous</button><span id="dpmPageInfo">Page 1 of 1</span><button id="dpmNextPageBtn" class="btn btn-sm">Next</button></div></div>
+                <div class="modal-actions"><button type="button" class="btn btn-secondary cancel-btn">Close</button></div>
+            </div>
+        </div>
+        
+        <div id="importTextModal" class="modal">
+            <div class="modal-content">
+                <h2>Import from Backup Text</h2>
+                <div class="form-group"><label>Paste your backup data here:</label><textarea id="importDataText" rows="10"></textarea></div>
+                <div class="modal-actions"><button type="button" id="loadTextBtn" class="btn">Load Backup</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+            </div>
+        </div>
+
+        <div id="adminPasswordModal" class="modal">
+            <div class="modal-content">
+                <h2>Admin Security</h2>
+                <form id="adminPasswordForm">
+                    <div class="form-group"><label>Type your security password</label><input type="password" id="adminPassword" required></div>
+                    <p id="admin-password-error" class="error-message"></p>
+                    <div class="modal-actions"><button type="submit" class="btn">Enter</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div id="adminOptionsModal" class="modal">
+            <div class="modal-content">
+                <h2>System Progress</h2>
+                <form id="adminOptionsForm">
+                    <div class="form-group-toggle"><button id="toggleDateInputsBtn" type="button" class="btn btn-icon">&#10148;</button></div>
+                    <div id="dateInputs" style="display:none;">
+                        <div class="form-group"><label>Progress Start</label><input type="datetime-local" id="timerStartDate" required></div>
+                        <div class="form-group"><label>Progress End</label><input type="datetime-local" id="timerEndDate" required></div>
+                    </div>
+                    <p id="admin-options-error" class="error-message"></p>
+                    <div id="countdownDisplay" style="display: none;"><span id="countdownLabel">Progress will freeze in:</span><div id="countdownTimer"></div></div>
+                    <div class="modal-actions">
+                        <button id="toggleCountdownBtn" type="button" class="btn btn-icon">&#9670;</button>
+                        <button type="submit" class="btn">Start Progress</button>
+                        <button type="button" id="stopTimerBtn" class="btn btn-warning">Stop Progress</button>
+                        <button type="button" id="codeCheckerBtn" class="btn btn-success">Code Checker</button>
+                        <button type="button" id="clearDataBtn" class="btn btn-danger">Clear All Data</button>
+                        <button type="button" class="btn btn-secondary cancel-btn">Close</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="clearDataPasswordModal" class="modal">
+            <div class="modal-content">
+                <h2>Confirm Data Deletion</h2>
+                <p><strong>DANGER:</strong> This will permanently erase ALL data.</p>
+                <form id="clearDataForm">
+                    <div class="form-group"><label>Password</label><input type="password" id="clearDataPassword" required></div>
+                    <p id="clear-data-error" class="error-message"></p>
+                    <div class="modal-actions"><button type="submit" class="btn btn-danger">Confirm</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+                </form>
+            </div>
+        </div>
+
+        <div id="expirationPasswordModal" class="modal">
+            <div class="modal-content">
+                <h2>Confirm Removal</h2>
+                <form id="expirationPasswordForm">
+                    <div class="form-group"><label>Password</label><input type="password" id="expirationItemPassword" required></div>
+                    <p id="expiration-item-error" class="error-message"></p>
+                    <div class="modal-actions"><button type="submit" class="btn">Confirm</button><button type="button" class="btn btn-secondary cancel-btn">Cancel</button></div>
+                </form>
+            </div>
+        </div>
+        
+        <div id="manualCopyModal" class="modal">
+            <div class="modal-content">
+                <h2>Copy Data Manually</h2>
+                <div class="form-group"><textarea id="manualCopyText" rows="15" readonly></textarea></div>
+                <div class="modal-actions"><button type="button" id="selectAllBtn" class="btn btn-primary">Select All</button><button type="button" class="btn btn-secondary cancel-btn">Close</button></div>
+            </div>
+        </div>
+
+        <div id="systemCheckModal" class="modal system-check-modal">
+            <canvas id="matrixCanvas"></canvas>
+            <div id="loadingBox">
+                <h3 id="loadingStatusText">Initializing System Scan...</h3>
+                <div id="progressBarContainer"><div id="progressBar"></div></div>
+                <p id="loadingPercentage">0%</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SUPABASE CONFIGURATION ---
+        const SUPABASE_URL = "https://wmciiqeywkluzkslzsrq.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtY2lpcWV5d2tsdXprc2x6c3JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNDk0MjksImV4cCI6MjA3OTgyNTQyOX0.qVXO8GcXW8AsjWT4N-zkfW5B0g5qijoPX2mOZc4btVQ";
+        
+        let supabase = null;
+        try { supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); console.log("Supabase initialized."); } catch (err) { console.error("Supabase Init Error", err); }
+
+        // --- PWA LOGIC (Restored Full) ---
+        let deferredPrompt;
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(registration => { console.log('ServiceWorker registration successful with scope: ', registration.scope); })
+                    .catch(err => { console.log('ServiceWorker registration failed: ', err); });
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installContainer = document.getElementById('pwaInstallContainer');
+            if(installContainer) {
+                installContainer.style.display = 'block';
+                const installBtn = document.getElementById('pwaInstallBtn');
+                installBtn.addEventListener('click', async () => {
+                    installContainer.style.display = 'none';
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to the install prompt: ${outcome}`);
+                    deferredPrompt = null;
+                });
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+            const installContainer = document.getElementById('pwaInstallContainer');
+            if(installContainer) installContainer.style.display = 'none';
+            deferredPrompt = null;
+            console.log('PWA was installed');
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // --- INDEXEDDB HELPER ---
+            const db = {
+                _db: null,
+                init: function() { return new Promise((res, rej) => { const req = indexedDB.open('InventoryDB', 3); req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('items')) { db.createObjectStore('items', { keyPath: 'id' }).createIndex('name', 'name', { unique: false }); } if (!db.objectStoreNames.contains('dispenseLog')) { const ls = db.createObjectStore('dispenseLog', { autoIncrement: true }); ls.createIndex('dispenseDate', 'dispenseDate', { unique: false }); ls.createIndex('dispenseDateLocal', 'dispenseDateLocal', { unique: false }); } }; req.onsuccess = (e) => { this._db = e.target.result; res(); }; req.onerror = (e) => rej(e.target.errorCode); }); },
+                _getStore: function(n, m) { return this._db.transaction(n, m).objectStore(n); },
+                addItem: function(i) { return new Promise((res, rej) => { const r = this._getStore('items', 'readwrite').add(i); r.onsuccess = res; r.onerror = rej; }); },
+                updateItem: function(i) { return new Promise((res, rej) => { const r = this._getStore('items', 'readwrite').put(i); r.onsuccess = res; r.onerror = rej; }); },
+                deleteItem: function(id) { return new Promise((res, rej) => { const r = this._getStore('items', 'readwrite').delete(id); r.onsuccess = res; r.onerror = rej; }); },
+                getItem: function(id) { return new Promise((res, rej) => { const r = this._getStore('items', 'readonly').get(id); r.onsuccess = () => res(r.result); r.onerror = rej; }); },
+                getAllItems: function() { return new Promise((res, rej) => { const r = this._getStore('items', 'readonly').getAll(); r.onsuccess = () => res(r.result.sort((a,b) => b.id - a.id)); r.onerror = rej; }); },
+                addDispenseLog: function(l) { return new Promise((res, rej) => { const r = this._getStore('dispenseLog', 'readwrite').add(l); r.onsuccess = res; r.onerror = rej; }); },
+                getAllDispenseLogs: function() { return new Promise((res, rej) => { const r = this._getStore('dispenseLog', 'readonly').getAll(); r.onsuccess = () => res(r.result); r.onerror = rej; }); },
+                getDispenseLogByDate: function(d) { return new Promise((res, rej) => { const r = this._getStore('dispenseLog', 'readonly').index('dispenseDateLocal').getAll(d); r.onsuccess = () => res(r.result); r.onerror = rej; }); },
+                deleteDispenseLogByDate: function(d) { return new Promise((res, rej) => { const req = this._getStore('dispenseLog', 'readwrite').index('dispenseDateLocal').openCursor(d); req.onsuccess = (e) => { const c = e.target.result; if(c) { c.delete(); c.continue(); } else res(); }; req.onerror = rej; }); },
+                clearStore: function(n) { return new Promise((res, rej) => { const r = this._getStore(n, 'readwrite').clear(); r.onsuccess = res; r.onerror = rej; }); },
+                bulkAdd: function(n, d) { return new Promise((res, rej) => { const s = this._getStore(n, 'readwrite'); d.forEach(i => s.add(i)); s.transaction.oncomplete = res; s.transaction.onerror = rej; }); },
+            };
+
+            // --- NAVIGATION & TIMESTAMP ---
+            let timestampInterval = null;
+            const loginPage = document.getElementById('login-page');
+            const inventoryPage = document.getElementById('inventory-page');
+            const showInventoryPage = () => { loginPage.style.display = 'none'; inventoryPage.style.display = 'block'; updateTimestamp(); if(!timestampInterval) timestampInterval = setInterval(updateTimestamp, 1000); };
+            const showLoginPage = () => { loginPage.style.display = 'flex'; inventoryPage.style.display = 'none'; clearInterval(timestampInterval); timestampInterval = null; };
+            const updateTimestamp = () => { const now = new Date(); const d = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }); const t = now.toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit', second: '2-digit' }); document.getElementById('timestamp').innerHTML = `${d}<br>${t}`; document.getElementById('loginTimestamp').innerHTML = `<span>${d}</span> <span>${t}</span>`; };
+
+            // --- FREEZE/ACTIVATE LOGIC ---
+            const freezeUI = () => document.querySelectorAll('#registerBtn, #viewListBtn, #dpmBtn, #dispenseListBtn, #expirationBtn, #exportBtnText, #exportBtnFile, #importBtnText, #importBtnFile, .edit-btn, .dispense-btn, .delete-btn').forEach(btn => btn.disabled = true);
+            const unfreezeUI = () => document.querySelectorAll('#registerBtn, #viewListBtn, #dpmBtn, #dispenseListBtn, #expirationBtn, #exportBtnText, #exportBtnFile, #importBtnText, #importBtnFile, .edit-btn, .dispense-btn, .delete-btn').forEach(btn => btn.disabled = false);
+            const applyUIState = () => { if (localStorage.getItem('appStatus') === 'stopped') { freezeUI(); console.log("Frozen"); } else { unfreezeUI(); console.log("Active"); } };
+
+            const handleActivation = async (e) => {
+                e.preventDefault(); const btn = document.getElementById('submitCodeBtn'); const codeInput = document.getElementById('extensionCode'); const errorEl = document.getElementById('extension-code-error'); const userCode = codeInput.value.trim().toUpperCase();
+                if (!userCode) { errorEl.textContent = 'Enter code.'; return; }
+                btn.textContent = 'Verifying...'; btn.disabled = true; errorEl.textContent = '';
+                try {
+                    const { data, error } = await supabase.from('access_codes').select('*').eq('code', userCode).single();
+                    if (error || !data) throw new Error("Invalid Code");
+                    if (data.status !== 'available') throw new Error("Code used.");
+                    const { error: updateError } = await supabase.from('access_codes').update({ status: 'used' }).eq('id', data.id);
+                    if (updateError) throw updateError;
+                    
+                    const newExp = new Date(); newExp.setDate(newExp.getDate() + 30);
+                    localStorage.setItem('appExpiration', newExp.getTime()); localStorage.setItem('appStatus', 'running');
+                    if (countdownInterval) clearInterval(countdownInterval); countdownInterval = setInterval(updateCountdownDisplay, 1000); updateCountdownDisplay(); applyUIState();
+                    alert('Activated for 30 days.'); document.getElementById('extensionCodeModal').style.display = 'none'; codeInput.value = '';
+                } catch (err) { errorEl.textContent = err.message || "Failed."; } finally { btn.textContent = 'Activate'; btn.disabled = false; }
+            };
+            document.getElementById('extensionCodeForm').addEventListener('submit', handleActivation);
+            document.getElementById('enterCodeBtn').addEventListener('click', () => { document.getElementById('extensionCodeModal').style.display = 'flex'; });
+
+            // --- LOGIN ---
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault(); const u = document.getElementById('username').value.trim(); const p = document.getElementById('password').value;
+                if (u === 'account1' && p === 'store2025') { sessionStorage.setItem('loggedIn', 'true'); showInventoryPage(); await refreshAndRenderTable(); checkExpirationOnLoad(); } 
+                else { document.getElementById('login-error').textContent = 'Invalid credentials'; }
+            });
+
+            // --- TIMER ---
+            let countdownInterval = null;
+            const updateCountdownDisplay = () => {
+                const exp = localStorage.getItem('appExpiration'); const display = document.getElementById('countdownTimer');
+                if (!exp) { display.textContent = ""; return; }
+                const rem = parseInt(exp) - Date.now();
+                if (rem <= 0) {
+                    document.getElementById('countdownLabel').textContent = "EXPIRED"; display.textContent = "";
+                    if (localStorage.getItem('appStatus') !== 'stopped') { localStorage.setItem('appStatus', 'stopped'); applyUIState(); alert("Expired. Frozen."); }
+                } else {
+                    document.getElementById('countdownLabel').textContent = "Expires in:";
+                    display.textContent = `${Math.floor(rem / 86400000)}d ${Math.floor((rem % 86400000) / 3600000)}h`;
+                }
+            };
+            const checkExpirationOnLoad = async () => {
+                if (!localStorage.getItem('appInitialized')) { localStorage.setItem('appStatus', 'stopped'); localStorage.setItem('appInitialized', 'true'); }
+                const exp = localStorage.getItem('appExpiration');
+                if (exp && Date.now() >= parseInt(exp)) localStorage.setItem('appStatus', 'stopped');
+                else if (exp) { if (countdownInterval) clearInterval(countdownInterval); countdownInterval = setInterval(updateCountdownDisplay, 1000); }
+                applyUIState(); updateCountdownDisplay();
+            };
+
+            // --- INVENTORY UI & LOGIC ---
+            let currentPage = 1, itemsPerPage = 5;
+            const tableBody = document.getElementById('inventoryTableBody');
+            
+            // *** TOGGLE BUTTON LOGIC ***
+            const toggleBtn = document.getElementById('toggleActionsBtn');
+            const actionContainer = document.getElementById('actionButtons');
+            toggleBtn.addEventListener('click', () => {
+                const isHidden = actionContainer.style.display === 'none';
+                actionContainer.style.display = isHidden ? 'flex' : 'none';
+                toggleBtn.innerHTML = isHidden ? '&#9670;' : '&#9671;';
+            });
+
+            const refreshAndRenderTable = async () => { const inv = await db.getAllItems(); renderTable(inv); };
+            const renderTable = (inv) => {
+                tableBody.innerHTML = ''; const term = document.getElementById('searchInput').value.toLowerCase();
+                const filtered = inv.filter(i => i.name.toLowerCase().includes(term));
+                const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+                currentPage = Math.min(currentPage, totalPages);
+                const start = (currentPage - 1) * itemsPerPage;
+                const pageItems = filtered.slice(start, start + itemsPerPage);
+                
+                pageItems.forEach(i => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${i.name}</td><td>${i.quantity}</td><td>₱${parseFloat(i.unitPrice).toFixed(2)}</td><td>${i.expirationDate || 'N/A'}</td><td>${i.registrationDate}</td><td><div class="table-actions"><button class="btn btn-sm edit-btn" data-id="${i.id}">Edit</button><button class="btn btn-sm dispense-btn" data-id="${i.id}">Dispense</button><button class="btn btn-sm btn-danger delete-btn" data-id="${i.id}">Delete</button></div></td>`;
+                    tableBody.appendChild(tr);
+                });
+                document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+                document.getElementById('prevPageBtn').disabled = currentPage === 1;
+                document.getElementById('nextPageBtn').disabled = currentPage === totalPages;
+                document.getElementById('totalItems').textContent = `Total Items: ${new Set(inv.map(i=>i.name)).size}`;
+                applyUIState();
+            };
+
+            // Event Listeners
+            document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; refreshAndRenderTable(); });
+            document.getElementById('prevPageBtn').addEventListener('click', () => { if(currentPage > 1) { currentPage--; refreshAndRenderTable(); }});
+            document.getElementById('nextPageBtn').addEventListener('click', async () => { const i = await db.getAllItems(); if(currentPage < Math.ceil(i.length/itemsPerPage)) { currentPage++; refreshAndRenderTable(); }});
+            document.getElementById('logoutBtn').addEventListener('click', () => { sessionStorage.removeItem('loggedIn'); document.getElementById('loginForm').reset(); showLoginPage(); });
+
+            // Modal Toggles
+            const showModal = (m) => m.style.display = 'flex';
+            const hideModal = (m) => { m.style.display = 'none'; m.querySelectorAll('form').forEach(f=>f.reset()); m.querySelectorAll('.error-message').forEach(e=>e.textContent=''); };
+            document.querySelectorAll('.modal').forEach(m => { m.addEventListener('click', e => { if(e.target===m) hideModal(m); }); m.querySelector('.cancel-btn')?.addEventListener('click', ()=>hideModal(m)); });
+
+            // Admin Modal Logic
+            const adminBtn = document.querySelector('.invincible-admin-btn');
+            adminBtn.addEventListener('click', () => showModal(document.getElementById('adminPasswordModal')));
+            
+            document.getElementById('adminPasswordForm').addEventListener('submit', (e) => {
+                e.preventDefault(); const p = document.getElementById('adminPassword').value;
+                if(p === 'urielllamasadmin2025') { hideModal(document.getElementById('adminPasswordModal')); showModal(document.getElementById('adminOptionsModal')); }
+                else document.getElementById('admin-password-error').textContent = "Incorrect.";
+            });
+            
+            // Admin Options Toggles
+            const toggleDateBtn = document.getElementById('toggleDateInputsBtn');
+            const dateInputs = document.getElementById('dateInputs');
+            toggleDateBtn.addEventListener('click', () => { dateInputs.style.display = dateInputs.style.display === 'none' ? 'block' : 'none'; });
+            
+            const toggleCdBtn = document.getElementById('toggleCountdownBtn');
+            const cdDisplay = document.getElementById('countdownDisplay');
+            toggleCdBtn.addEventListener('click', () => { cdDisplay.style.display = cdDisplay.style.display === 'none' ? 'block' : 'none'; });
+
+            // Admin Actions
+            document.getElementById('adminOptionsForm').addEventListener('submit', (e) => {
+                e.preventDefault(); const s = document.getElementById('timerStartDate').value; const end = document.getElementById('timerEndDate').value;
+                if(!s || !end) return;
+                const exp = new Date(end).getTime(); localStorage.setItem('appExpiration', exp); localStorage.setItem('appStatus', 'running');
+                if(countdownInterval) clearInterval(countdownInterval); countdownInterval = setInterval(updateCountdownDisplay, 1000); updateCountdownDisplay(); applyUIState();
+                alert('Progress started.'); hideModal(document.getElementById('adminOptionsModal'));
+            });
+            document.getElementById('stopTimerBtn').addEventListener('click', () => { localStorage.setItem('appStatus', 'stopped'); localStorage.removeItem('appExpiration'); applyUIState(); updateCountdownDisplay(); alert('Stopped.'); });
+            document.getElementById('clearDataBtn').addEventListener('click', () => showModal(document.getElementById('clearDataPasswordModal')));
+            document.getElementById('clearDataForm').addEventListener('submit', async (e) => {
+                e.preventDefault(); if(document.getElementById('clearDataPassword').value === 'urielllamasadmin2025') {
+                    await db.clearStore('items'); await db.clearStore('dispenseLog'); hideModal(document.getElementById('clearDataPasswordModal')); hideModal(document.getElementById('adminOptionsModal')); refreshAndRenderTable(); alert('Data cleared.');
+                } else document.getElementById('clear-data-error').textContent = "Incorrect.";
+            });
+
+            // Feature Buttons
+            document.getElementById('registerBtn').addEventListener('click', () => { document.getElementById('modalTitle').textContent='Register New Item'; document.getElementById('registrationDate').valueAsDate=new Date(); showModal(document.getElementById('itemModal')); });
+            document.getElementById('itemForm').addEventListener('submit', async (e) => {
+                e.preventDefault(); const n = document.getElementById('itemName').value.trim(); const q = parseInt(document.getElementById('quantity').value); const p = parseFloat(document.getElementById('unitPrice').value); const ex = document.getElementById('expirationDate').value; const r = document.getElementById('registrationDate').value; const id = document.getElementById('itemId').value;
+                if(!n || q<0 || p<0) return;
+                if(id) { const item = await db.getItem(parseInt(id)); await db.updateItem({...item, name:n, quantity:q, unitPrice:p, expirationDate:ex, registrationDate:r}); }
+                else await db.addItem({ id: Date.now(), name:n, quantity:q, unitPrice:p, expirationDate:ex, registrationDate:r });
+                hideModal(document.getElementById('itemModal')); refreshAndRenderTable();
+            });
+
+            // Dispense & Delete
+            tableBody.addEventListener('click', async (e) => {
+                const id = parseInt(e.target.dataset.id); if(!id) return;
+                if(e.target.classList.contains('delete-btn')) { if(confirm('Delete?')) { await db.deleteItem(id); refreshAndRenderTable(); } }
+                else if (e.target.classList.contains('edit-btn')) { const i = await db.getItem(id); document.getElementById('itemId').value=i.id; document.getElementById('itemName').value=i.name; document.getElementById('quantity').value=i.quantity; document.getElementById('unitPrice').value=i.unitPrice; document.getElementById('expirationDate').value=i.expirationDate; document.getElementById('registrationDate').value=i.registrationDate; document.getElementById('modalTitle').textContent='Edit Item'; showModal(document.getElementById('itemModal')); }
+                else if (e.target.classList.contains('dispense-btn')) { const i = await db.getItem(id); document.getElementById('dispenseItemName').textContent=i.name; document.getElementById('dispenseAvailableQty').textContent=i.quantity; document.getElementById('dispenseQuantity').max=i.quantity; document.getElementById('dispenseForm').dataset.id=id; showModal(document.getElementById('dispenseModal')); }
+            });
+
+            document.getElementById('dispenseForm').addEventListener('submit', async (e) => {
+                e.preventDefault(); const id = parseInt(e.target.dataset.id); const qty = parseInt(document.getElementById('dispenseQuantity').value);
+                const item = await db.getItem(id); if(qty > item.quantity) return;
+                item.quantity -= qty; await db.updateItem(item);
+                const now = new Date(); const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                await db.addDispenseLog({ itemId: item.id, itemName: item.name, dispensedQty: qty, remainingQty: item.quantity, unitPrice: item.unitPrice, totalAmount: qty*item.unitPrice, dispenseDate: now.toISOString(), dispenseDateLocal: localDate });
+                hideModal(document.getElementById('dispenseModal')); refreshAndRenderTable();
+            });
+
+            // --- FEATURE MODALS (DPM, Full List, etc) ---
+            document.getElementById('viewListBtn').addEventListener('click', async () => {
+                const list = await db.getAllItems(); const c = document.getElementById('fullItemList'); 
+                c.innerHTML = list.length ? `<ul>${list.map(i=>`<li>${i.name} - Qty: ${i.quantity}</li>`).join('')}</ul>` : '<p>Empty</p>';
+                showModal(document.getElementById('viewListModal'));
+            });
+            document.getElementById('dpmBtn').addEventListener('click', () => { document.getElementById('dpmContent').innerHTML='Select date'; showModal(document.getElementById('dpmModal')); });
+            document.getElementById('dpmDateBtn').addEventListener('click', async () => {
+                const d = document.getElementById('dpmDateInput').value; if(!d) return;
+                const logs = await db.getDispenseLogByDate(d); const c = document.getElementById('dpmContent');
+                if(!logs.length) { c.innerHTML='No records'; return; }
+                c.innerHTML = `<table class="dpm-table"><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead><tbody>${logs.map(l=>`<tr><td>${l.itemName}</td><td>${l.dispensedQty}</td><td>₱${l.totalAmount.toFixed(2)}</td></tr>`).join('')}</tbody></table>`;
+            });
+
+            // Start
+            await db.init(); await checkExpirationOnLoad(); updateTimestamp(); setInterval(updateTimestamp, 1000);
+            if (sessionStorage.getItem('loggedIn') === 'true') { showInventoryPage(); await refreshAndRenderTable(); } else showLoginPage();
+        });
+    </script>
+</body>
+</html>
